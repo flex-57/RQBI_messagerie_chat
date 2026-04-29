@@ -1,0 +1,231 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}RQBI Messagerie{% endblock %}
+
+{% block body %}
+<div class="chat-container" x-data="chatApp()">
+    <!-- Sidebar -->
+    <div class="chat-sidebar">
+        <div style="padding: 1rem; border-bottom: 1px solid var(--rqbi-line);">
+            <h2 style="font-size: 1.5rem;">Messagerie</h2>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" @click="logout()">
+                Déconnexion
+            </button>
+        </div>
+
+        <div style="padding: 1rem; border-bottom: 1px solid var(--rqbi-line);">
+            <input type="text" class="form-input" placeholder="Rechercher..." x-model="searchQuery">
+        </div>
+
+        <div style="flex: 1; overflow-y: auto;">
+            <template x-for="conversation in filteredConversations" :key="conversation.id">
+                <div class="conversation-item" :class="{ active: selectedConversation?.id === conversation.id }"
+                     @click="selectConversation(conversation)">
+                    <div class="conversation-name" x-text="conversation.name || 'Conversation'"></div>
+                    <div class="conversation-last-message" x-text="conversation.lastMessage || 'Pas de messages'"></div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Main chat area -->
+    <div class="chat-main">
+        <template x-if="selectedConversation">
+            <div style="display: flex; flex-direction: column; height: 100%;">
+                <!-- Header -->
+                <div class="chat-header">
+                    <h3 style="margin: 0;" x-text="selectedConversation.name || 'Conversation'"></h3>
+                    <div style="font-size: 0.875rem; color: var(--rqbi-ink-mute); margin-top: 0.25rem;">
+                        <span x-text="selectedConversation.members.length"></span> participants
+                    </div>
+                </div>
+
+                <!-- Messages -->
+                <div class="chat-messages" @scroll="loadMoreMessages()">
+                    <template x-for="message in messages" :key="message.id">
+                        <div class="message" :class="{ own: message.senderId === currentUser.id }">
+                            <div>
+                                <div class="message-sender" x-text="message.senderName"></div>
+                                <div class="message-content" x-text="message.content"></div>
+                                <div style="font-size: 0.75rem; color: var(--rqbi-ink-mute); margin-top: 0.25rem;"
+                                     x-text="formatTime(message.createdAt)"></div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="loading" class="spinner"></div>
+                </div>
+
+                <!-- Input area -->
+                <div class="chat-input-area">
+                    <input type="text" class="form-input chat-input" placeholder="Entrez votre message..."
+                           x-model="messageInput" @keydown.enter="sendMessage()">
+                    <button class="btn btn-primary" @click="sendMessage()">Envoyer</button>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="!selectedConversation">
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                <div style="text-align: center; color: var(--rqbi-ink-mute);">
+                    <h2>Sélectionnez une conversation</h2>
+                    <p>pour commencer à discuter</p>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<script>
+function chatApp() {
+    return {
+        currentUser: null,
+        conversations: [],
+        selectedConversation: null,
+        messages: [],
+        messageInput: '',
+        searchQuery: '',
+        loading: false,
+        apiBase: '/api',
+        token: localStorage.getItem('authToken'),
+
+        get filteredConversations() {
+            return this.conversations.filter(c =>
+                (c.name || '').toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+        },
+
+        init() {
+            if (!this.token) {
+                window.location.href = '/login';
+                return;
+            }
+            this.loadCurrentUser();
+            this.loadConversations();
+            this.subscribeToUpdates();
+        },
+
+        async loadCurrentUser() {
+            const userData = JSON.parse(localStorage.getItem('user') || '{}');
+            this.currentUser = userData;
+        },
+
+        async loadConversations() {
+            try {
+                const response = await fetch(`${this.apiBase}/conversations`, {
+                    headers: { 'Authorization': `Bearer ${this.token}` }
+                });
+                this.conversations = await response.json();
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        },
+
+        async selectConversation(conversation) {
+            this.selectedConversation = conversation;
+            this.messages = [];
+            this.messageInput = '';
+            await this.loadMessages();
+        },
+
+        async loadMessages() {
+            if (!this.selectedConversation) return;
+
+            try {
+                const response = await fetch(
+                    `${this.apiBase}/conversations/${this.selectedConversation.id}/messages`,
+                    { headers: { 'Authorization': `Bearer ${this.token}` } }
+                );
+                const data = await response.json();
+                this.messages = data.messages || [];
+                this.scrollToBottom();
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        },
+
+        async sendMessage() {
+            if (!this.messageInput.trim() || !this.selectedConversation) return;
+
+            try {
+                const response = await fetch(
+                    `${this.apiBase}/conversations/${this.selectedConversation.id}/messages`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ content: this.messageInput })
+                    }
+                );
+
+                if (response.ok) {
+                    this.messageInput = '';
+                    await this.loadMessages();
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
+        },
+
+        loadMoreMessages() {
+            // Implement pagination if needed
+        },
+
+        subscribeToUpdates() {
+            if (!window.EventSource) {
+                console.warn('EventSource not supported');
+                return;
+            }
+
+            if (!this.selectedConversation) return;
+
+            const eventSource = new EventSource(
+                `${window.location.protocol}//${window.location.host}/.well-known/mercure?topic=conversation/${this.selectedConversation.id}/messages`
+            );
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (!this.messages.find(m => m.id === message.id)) {
+                        this.messages.push(message);
+                        this.scrollToBottom();
+                    }
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+
+            this.$watch('selectedConversation', () => {
+                eventSource.close();
+                this.subscribeToUpdates();
+            });
+        },
+
+        scrollToBottom() {
+            this.$nextTick(() => {
+                const messagesDiv = document.querySelector('.chat-messages');
+                if (messagesDiv) {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            });
+        },
+
+        formatTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        },
+
+        logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+    };
+}
+</script>
+{% endblock %}

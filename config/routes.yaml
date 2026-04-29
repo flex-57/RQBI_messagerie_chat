@@ -1,0 +1,8 @@
+api:
+  resource: ../src/Controller/
+  type: attribute
+  prefix: /api
+
+app:
+  resource: ../src/Controller/
+  type: attribute

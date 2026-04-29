@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: rqbi_chat_app
+    working_dir: /app
+    ports:
+      - "9000:9000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - MERCURE_URL=${MERCURE_URL}
+      - MERCURE_JWT_SECRET=${MERCURE_JWT_SECRET}
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - mercure
+
+  db:
+    image: postgres:16-alpine
+    container_name: rqbi_chat_db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mercure:
+    image: dunglas/mercure:latest
+    container_name: rqbi_chat_mercure
+    environment:
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET}
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins *
+    ports:
+      - "3000:80"
+    expose:
+      - "80"
+
+  nginx:
+    image: nginx:alpine
+    container_name: rqbi_chat_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./public:/app/public:ro
+    depends_on:
+      - app
+    command: nginx -g "daemon off;"
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: rqbi_chat_network

@@ -1,0 +1,36 @@
+doctrine:
+  dbal:
+    url: '%env(resolve:DATABASE_URL)%'
+    driver: pdo_pgsql
+    charset: utf8
+
+  orm:
+    auto_generate_proxy_classes: true
+    cache_dir: '%kernel.cache_dir%/doctrine/orm'
+    namespaces:
+      App\Entity: ~
+    metadata_cache_driver:
+      type: pool
+      pool: doctrine.system_cache_pool
+    query_cache_driver:
+      type: pool
+      pool: doctrine.system_cache_pool
+    result_cache_driver:
+      type: pool
+      pool: doctrine.result_cache_pool
+    auto_mapping: true
+    mappings:
+      App:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/Entity'
+        prefix: 'App\Entity'
+        alias: App
+
+framework:
+  cache:
+    pools:
+      doctrine.system_cache_pool:
+        adapter: cache.system
+      doctrine.result_cache_pool:
+        adapter: cache.app

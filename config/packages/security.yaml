@@ -1,0 +1,27 @@
+security:
+  enable_authenticator_manager: true
+  password_hashers:
+    Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+      algorithm: auto
+
+  providers:
+    users_db:
+      entity:
+        class: App\Entity\User
+        property: email
+
+  firewalls:
+    dev:
+      pattern: ^/(_(profiler|wdt)|css|images|js)/
+      security: false
+    main:
+      lazy: true
+      provider: users_db
+      custom_authenticators:
+        - App\Security\ApiTokenAuthenticator
+      stateless: true
+
+  access_control:
+    - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+    - { path: ^/api/, roles: ROLE_USER }
+    - { path: ^/, roles: PUBLIC_ACCESS }
