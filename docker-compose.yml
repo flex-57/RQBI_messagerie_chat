@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build: .
@@ -11,11 +9,14 @@ services:
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       - MERCURE_URL=${MERCURE_URL}
       - MERCURE_JWT_SECRET=${MERCURE_JWT_SECRET}
+      - APP_ENV=dev
+      - APP_DEBUG=true
     volumes:
       - .:/app
     depends_on:
       - db
       - mercure
+    restart: on-failure
 
   db:
     image: postgres:16-alpine

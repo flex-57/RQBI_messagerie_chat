@@ -28,7 +28,9 @@
     "require-dev": {
         "symfony/debug-bundle": "7.4.*",
         "symfony/maker-bundle": "^1.56",
-        "symfony/var-dumper": "7.4.*"
+        "symfony/var-dumper": "7.4.*",
+        "phpunit/phpunit": "^11.0",
+        "symfony/test-pack": "^1.0"
     },
     "config": {
         "allow-plugins": {

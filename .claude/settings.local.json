@@ -4,7 +4,15 @@
       "Bash(git init *)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose ps *)",
+      "Bash(docker version *)",
+      "Bash(docker-compose logs *)",
+      "Bash(docker-compose exec *)",
+      "Bash(docker-compose down *)",
+      "Bash(php -l src/Entity/User.php)",
+      "Bash(php -l src/Controller/AuthController.php)"
     ]
   }
 }
